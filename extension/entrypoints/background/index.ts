@@ -17,6 +17,7 @@ export default defineBackground({
 
     let ws: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let connecting = false;
 
     let state: AppState = {
       connected: false,
@@ -145,63 +146,83 @@ export default defineBackground({
     }
 
     async function connect() {
-      if (ws) { ws.close(); ws = null; }
-
-      const url = await discoverBridge();
-      if (!url) {
-        console.log("[bg] Bridge not found, will retry...");
-        patch({ connected: false, error: "Bridge not found. Make sure the bridge is running." });
-        scheduleReconnect();
-        return;
-      }
-
-      console.log(`[bg] Connecting to bridge: ${url}`);
-
+      // Guard against concurrent connect() calls (e.g. a "reconnect" message
+      // arriving while a previous connect is still probing for the bridge).
+      // Two live sockets would receive every bridge broadcast twice and
+      // duplicate all streamed text in the panel.
+      if (connecting) return;
+      connecting = true;
       try {
-        ws = new WebSocket(url);
-      } catch (err) {
-        console.error("[bg] WS creation failed:", err);
-        patch({ connected: false, error: `Connection failed: ${(err as Error).message}` });
-        scheduleReconnect();
-        return;
+        if (ws) { ws.close(); ws = null; }
+
+        const url = await discoverBridge();
+        if (!url) {
+          console.log("[bg] Bridge not found, will retry...");
+          patch({ connected: false, error: "Bridge not found. Make sure the bridge is running." });
+          scheduleReconnect();
+          return;
+        }
+
+        console.log(`[bg] Connecting to bridge: ${url}`);
+
+        let sock: WebSocket;
+        try {
+          sock = new WebSocket(url);
+        } catch (err) {
+          console.error("[bg] WS creation failed:", err);
+          patch({ connected: false, error: `Connection failed: ${(err as Error).message}` });
+          scheduleReconnect();
+          return;
+        }
+        ws = sock;
+
+        // Every handler checks `ws === sock` so events from a superseded
+        // socket (e.g. its late close firing after it was replaced) can never
+        // clobber the live connection or spawn spurious reconnects — the bug
+        // that used to leave zombie sockets delivering duplicate deltas.
+        sock.onopen = async () => {
+          if (ws !== sock) return;
+          console.log("[bg] Connected");
+          if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+          discoveredPort = parseInt(new URL(url).port, 10);
+          patch({ connected: true, error: undefined });
+
+          const token = await getBridgeToken();
+          if (token && ws === sock) send({ type: "auth", token });
+
+          const ctx = await getPageContext();
+          if (ctx && ws === sock) {
+            patch({ pageContext: ctx });
+            send({ type: "page_context_update", pageContext: ctx });
+          }
+          // Sync the saved language preference so the bridge applies it on connect.
+          const lang = await getLanguage();
+          if (ws === sock) send({ type: "set_language", language: lang });
+        };
+
+        sock.onmessage = (e: MessageEvent) => {
+          if (ws !== sock) return; // stale socket — ignore duplicate events
+          const lines = (e.data as string).split("\n").filter(Boolean);
+          for (const line of lines) {
+            try {
+              const msg: BridgeToExtension = JSON.parse(line);
+              handleMessage(msg);
+            } catch { /* skip bad json */ }
+          }
+        };
+
+        sock.onclose = () => {
+          if (ws !== sock) return; // this socket was replaced; the live one stays
+          console.log("[bg] Disconnected");
+          patch({ connected: false, isProcessing: false });
+          ws = null;
+          scheduleReconnect();
+        };
+
+        sock.onerror = () => { /* onclose fires after */ };
+      } finally {
+        connecting = false;
       }
-
-      ws.onopen = async () => {
-        console.log("[bg] Connected");
-        discoveredPort = parseInt(new URL(url).port, 10);
-        patch({ connected: true, error: undefined });
-
-        const token = await getBridgeToken();
-        if (token) send({ type: "auth", token });
-
-        const ctx = await getPageContext();
-        if (ctx) {
-          patch({ pageContext: ctx });
-          send({ type: "page_context_update", pageContext: ctx });
-        }
-        // Sync the saved language preference so the bridge applies it on connect.
-        const lang = await getLanguage();
-        send({ type: "set_language", language: lang });
-      };
-
-      ws.onmessage = (e: MessageEvent) => {
-        const lines = (e.data as string).split("\n").filter(Boolean);
-        for (const line of lines) {
-          try {
-            const msg: BridgeToExtension = JSON.parse(line);
-            handleMessage(msg);
-          } catch { /* skip bad json */ }
-        }
-      };
-
-      ws.onclose = () => {
-        console.log("[bg] Disconnected");
-        patch({ connected: false, isProcessing: false });
-        ws = null;
-        scheduleReconnect();
-      };
-
-      ws.onerror = () => { /* onclose fires after */ };
     }
 
     function send(data: Record<string, unknown>) {
