@@ -7,18 +7,15 @@
  */
 
 import {
-  AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
   defineTool,
   getAgentDir,
   ModelRegistry,
+  ModelRuntime,
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
-// getModel moved off the pi-ai root entrypoint in 0.80.0; use the /compat
-// re-export (deprecated but supported until the ModelManager migration).
-import { getModel } from "@earendil-works/pi-ai/compat";
 import { Type } from "typebox";
 import { StringEnum, type ImageContent, type ThinkingLevel } from "@earendil-works/pi-ai";
 import type { AgentSession, AgentSessionEvent, ToolDefinition } from "@earendil-works/pi-coding-agent";
@@ -165,13 +162,17 @@ export class PiAgent {
     const { config } = this;
 
     // ── Auth & Model Registry ────────────────────────────────────────
-    const authStorage = AuthStorage.create();
-    const modelRegistry = ModelRegistry.create(authStorage);
+    const agentDir = config.agentDir ?? getAgentDir();
+    const modelRuntime = await ModelRuntime.create({
+      authPath: join(agentDir, "auth.json"),
+      modelsPath: join(agentDir, "models.json"),
+    });
+    const modelRegistry = new ModelRegistry(modelRuntime);
 
     // ── Find model ───────────────────────────────────────────────────
     let model = undefined;
     if (config.defaultProvider && config.defaultModel) {
-      model = getModel(config.defaultProvider as any, config.defaultModel);
+      model = modelRegistry.find(config.defaultProvider, config.defaultModel);
       if (!model) {
         console.warn(`[bridge] Model ${config.defaultProvider}/${config.defaultModel} not found, using default`);
       }
@@ -202,8 +203,7 @@ export class PiAgent {
       agentDir: config.agentDir ?? getAgentDir(),
       model,
       thinkingLevel: (config.defaultThinkingLevel as ThinkingLevel) ?? "low",
-      authStorage,
-      modelRegistry,
+      modelRuntime,
       resourceLoader,
       settingsManager,
       sessionManager: sessionManager ?? SessionManager.inMemory(cwd),

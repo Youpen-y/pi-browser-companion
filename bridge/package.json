@@ -12,8 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "^0.80.2",
-    "@earendil-works/pi-coding-agent": "^0.80.2",
+    "@earendil-works/pi-ai": "^0.84.4",
+    "@earendil-works/pi-coding-agent": "^0.84.4",
     "clawpdf": "^0.3.0",
     "typebox": "^1.1.0",
     "uuid": "^9.0.0",
