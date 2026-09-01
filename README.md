@@ -51,22 +51,24 @@ Three layers: **Extension ↔ Bridge (local Node service, WebSocket) ↔ pi SDK 
 
 > The Bridge discovers credentials under `~/.pi/agent/` via `AuthStorage.create()`, so no API key is needed in the extension.
 
-### 1. Build & run the Bridge
+### 1. Install dependencies (once, at the repo root)
 
 ```bash
-cd bridge
-npm install        # includes pi SDK + clawpdf
-npm run dev        # tsx watch, auto-reloads on change
+npm install        # npm workspaces: installs bridge + extension together
+```
+
+### 2. Build & run the Bridge
+
+```bash
+npm run dev:bridge   # tsx watch, auto-reloads on change
 ```
 
 Listens on `ws://127.0.0.1:18731` by default. On success it prints `pi agent initialized (model: ...)`.
 
-### 2. Build & load the extension
+### 3. Build & load the extension
 
 ```bash
-cd extension
-npm install
-npm run build      # output in output/chrome-mv3/
+npm run build:extension   # output in extension/output/chrome-mv3/
 ```
 
 > Output goes to the non-dotted `output/` (not WXT's default `.output/`) so Chrome's "Load unpacked" directory picker can see it directly.
@@ -181,10 +183,10 @@ pi-chrome-extension/
 
 ```bash
 # Bridge (hot reload)
-cd bridge && npm run dev
+npm run dev:bridge
 
 # Extension (rebuild, then reload at chrome://extensions)
-cd extension && npm run build
+npm run build:extension
 ```
 
 Bridge changes auto-reload via tsx watch; extension changes need a 🔄 reload at `chrome://extensions`.
@@ -194,10 +196,8 @@ Bridge changes auto-reload via tsx watch; extension changes need a 🔄 reload a
 For daily use without keeping a terminal open, register the bridge as a **systemd user service**:
 
 ```bash
-cd bridge
-
-# Install (builds + writes the service unit + reloads systemd)
-./scripts/install-service.sh
+# From the repo root (builds + writes the service unit + reloads systemd)
+./bridge/scripts/install-service.sh
 
 # Start now and enable auto-start on login
 systemctl --user enable --now pi-bridge

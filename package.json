@@ -3,13 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "description": "Bring pi coding agent into your browser - summarize, chat, and modify web pages",
+  "workspaces": ["bridge", "extension"],
   "scripts": {
-    "dev:extension": "cd extension && npm run dev",
-    "dev:bridge": "cd bridge && npm run dev",
-    "build:extension": "cd extension && npm run build",
-    "build:bridge": "cd bridge && npm run build",
+    "dev:extension": "npm run dev -w extension",
+    "dev:bridge": "npm run dev -w bridge",
+    "build:extension": "npm run build -w extension",
+    "build:bridge": "npm run build -w bridge",
     "build": "npm run build:bridge && npm run build:extension",
-    "start:bridge": "cd bridge && npm run start"
+    "start:bridge": "npm run start -w bridge"
   },
   "keywords": ["pi", "chrome-extension", "ai-assistant", "browser-extension"],
   "license": "MIT"

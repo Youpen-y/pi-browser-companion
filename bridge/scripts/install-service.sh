@@ -22,6 +22,7 @@ set -euo pipefail
 # ── Resolve paths ──────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BRIDGE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_DIR="$(cd "$BRIDGE_DIR/.." && pwd)"
 SERVICE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 SERVICE_FILE="$SERVICE_DIR/pi-bridge.service"
 
@@ -41,9 +42,9 @@ echo "  Service:     $SERVICE_FILE"
 echo ""
 
 # ── Build ──────────────────────────────────────────────────────────────────
-if [ ! -d "$BRIDGE_DIR/node_modules" ]; then
-  echo "→ Installing dependencies..."
-  cd "$BRIDGE_DIR" && npm install
+if [ ! -d "$REPO_DIR/node_modules" ]; then
+  echo "→ Installing dependencies (repo root)..."
+  cd "$REPO_DIR" && npm install
 fi
 
 echo "→ Building bridge..."

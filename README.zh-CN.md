@@ -51,22 +51,24 @@ flowchart TB
 
 > Bridge 通过 `AuthStorage.create()` 自动发现 `~/.pi/agent/` 下的认证。无需在扩展里填 API key。
 
-### 第一步：构建并运行 Bridge
+### 第一步：安装依赖（仓库根目录，仅一次）
 
 ```bash
-cd bridge
-npm install        # 含 pi SDK + clawpdf
-npm run dev        # tsx watch，改动自动重载
+npm install        # npm workspaces：一并安装 bridge + extension
+```
+
+### 第二步：构建并运行 Bridge
+
+```bash
+npm run dev:bridge   # tsx watch，改动自动重载
 ```
 
 默认监听 `ws://127.0.0.1:18731`。启动成功会显示 `pi agent initialized (model: ...)`。
 
-### 第二步：构建并加载扩展
+### 第三步：构建并加载扩展
 
 ```bash
-cd extension
-npm install
-npm run build      # 产物在 output/chrome-mv3/
+npm run build:extension   # 产物在 extension/output/chrome-mv3/
 ```
 
 > 输出到不带点的 `output/`（非 WXT 默认的 `.output/`），这样 Chrome 的"加载已解压扩展"目录选择器能直接看到。
@@ -181,10 +183,10 @@ pi-chrome-extension/
 
 ```bash
 # Bridge（热重载）
-cd bridge && npm run dev
+npm run dev:bridge
 
 # 扩展（构建后到 chrome://extensions 重新加载）
-cd extension && npm run build
+npm run build:extension
 ```
 
 Bridge 改动由 tsx watch 自动重载；扩展改动需在 `chrome://extensions` 点 🔄 重新加载。
@@ -194,10 +196,8 @@ Bridge 改动由 tsx watch 自动重载；扩展改动需在 `chrome://extension
 日常使用无需保留终端窗口，可将 bridge 注册为 **systemd 用户服务**：
 
 ```bash
-cd bridge
-
-# 安装（build + 写入 service 单元 + 重载 systemd）
-./scripts/install-service.sh
+# 在仓库根目录执行（build + 写入 service 单元 + 重载 systemd）
+./bridge/scripts/install-service.sh
 
 # 立即启动并设置开机自启
 systemctl --user enable --now pi-bridge
