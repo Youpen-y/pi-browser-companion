@@ -1,8 +1,8 @@
-# pi Chrome Extension — 架构设计文档
+# pi Browser Companion — 架构设计文档
 
 ## 概述
 
-**pi Chrome Extension** 是一个浏览器插件，将 [pi coding agent](https://pi.dev) 的能力带入浏览器。用户可以在阅读网页时：
+**pi Browser Companion** 是一个浏览器插件，将 [pi coding agent](https://pi.dev) 的能力带入浏览器。用户可以在阅读网页时：
 
 1. **总结文章摘要** — 自动提取网页正文并生成摘要
 2. **与 pi 对话** — 围绕网页内容进行深入的对话讨论
@@ -385,7 +385,7 @@ Level 2: 全文（按需提供）
 ## 目录结构
 
 ```
-pi-chrome-extension/
+pi-browser-companion/
 ├── package.json                    # 根 package（workspace）
 ├── ARCHITECTURE.md                 # 本文档
 ├── README.md                       # 项目说明
@@ -478,7 +478,7 @@ pi-chrome-extension/
 
 - **不修改 pi 核心** — 完全通过 SDK + Extensions API 集成
 - **复用 pi 的会话格式** — 对话记录与 pi 原生格式兼容
-- **回馈生态** — 可发布为 pi package (pi-chrome-bridge)
+- **回馈生态** — 可发布为 pi package (pi-browser-companion-bridge)
 
 更多 pi 自定义能力参考：
 - [Extensions API](https://github.com/earendil-works/pi-coding-agent/blob/main/docs/extensions.md)

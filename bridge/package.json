@@ -1,5 +1,5 @@
 {
-  "name": "pi-chrome-bridge",
+  "name": "pi-browser-companion-bridge",
   "version": "0.1.0",
   "private": true,
   "type": "module",

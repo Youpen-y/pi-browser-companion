@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * pi Chrome Extension Bridge - Entry Point
+ * pi Browser Companion Bridge - Entry Point
  *
  * Starts the local bridge service that connects the Chrome extension
  * to the pi coding agent using pi SDK.
@@ -21,7 +21,7 @@ async function main() {
   const config = loadConfig();
 
   console.log("╔══════════════════════════════════════════════╗");
-  console.log("║   pi Chrome Extension Bridge Service         ║");
+  console.log("║   pi Browser Companion Bridge           ║");
   console.log("╠══════════════════════════════════════════════╣");
   console.log(`║  Port:       ${String(config.port).padEnd(34)}║`);
   console.log(`║  Host:       ${config.host.padEnd(34)}║`);

@@ -1,5 +1,5 @@
 {
-  "name": "pi-chrome-extension",
+  "name": "pi-browser-companion",
   "private": true,
   "version": "0.1.0",
   "description": "Bring pi coding agent into your browser - summarize, chat, and modify web pages",
