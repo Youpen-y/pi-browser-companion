@@ -82,7 +82,7 @@ npm run build      # output in output/chrome-mv3/
 |--------|--------|
 | Click the π icon / `Alt+Shift+P` | open the side panel |
 | 📄 button | summarize the current page |
-| ⚙️ button | settings (Bridge URL, font, language, page-style management) |
+| ⚙️ button | settings (Bridge URL, font, language, response model, page-style management) |
 
 If it shows disconnected on first open, click the banner to reconnect, or check the Bridge URL in ⚙️ (default `ws://127.0.0.1:18731`).
 

@@ -290,9 +290,16 @@ export class BridgeServer {
         this.handleNewSession();
         break;
 
+      case "list_models":
+        this.sendJson(ws, {
+          type: "models",
+          models: this.agent?.getAvailableModels() ?? [],
+          current: this.agent?.getCurrentModel() ?? null,
+        });
+        break;
+
       case "set_model":
-        console.log(`[bridge] Model change requested: ${msg.provider}/${msg.modelId}`);
-        // TODO: implement model switching
+        this.handleSetModel(ws, msg.provider, msg.modelId).catch(() => {});
         break;
 
       case "set_thinking_level":
@@ -364,6 +371,23 @@ export class BridgeServer {
       await this.agent.abort();
     } catch (err) {
       console.error("[bridge] abort error:", err);
+    }
+  }
+
+  /** Switch the agent model; broadcast the fresh list so every panel updates. */
+  private async handleSetModel(ws: WebSocket, provider: string, modelId: string): Promise<void> {
+    try {
+      if (!this.agent) throw new Error("Agent not initialized");
+      await this.agent.setModel(provider, modelId);
+      console.log(`[bridge] Model switched to ${provider}/${modelId}`);
+      this.broadcast({
+        type: "models",
+        models: this.agent.getAvailableModels(),
+        current: this.agent.getCurrentModel(),
+      });
+    } catch (err) {
+      console.warn(`[bridge] set_model failed: ${(err as Error).message}`);
+      this.sendJson(ws, { type: "error", code: "SET_MODEL_FAILED", message: (err as Error).message });
     }
   }
 

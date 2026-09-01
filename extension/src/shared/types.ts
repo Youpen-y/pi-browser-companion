@@ -30,7 +30,15 @@ export type BridgeToExtension =
   | { type: "message_update"; assistantMessageEvent: AssistantMessageEvent }
   | { type: "tool_call"; toolCallId: string; toolName: string; args: Record<string, unknown> }
   | { type: "tool_execution_start"; toolCallId: string; toolName: string; args: Record<string, unknown> }
+  | { type: "models"; models: ModelInfo[]; current: { provider: string; modelId: string } | null }
   | { type: "error"; code: string; message: string };
+
+/** Minimal model descriptor for the settings model picker. */
+export interface ModelInfo {
+  provider: string;
+  modelId: string;
+  name: string;
+}
 
 export type AssistantMessageEvent =
   | { type: "start" }
@@ -68,6 +76,10 @@ export interface AppState {
   pageMods: PageModsStatus | null;
   /** Reply language preference ("auto" = follow user/page language). */
   language: string;
+  /** Models with auth configured (fetched from the bridge for the picker). */
+  availableModels: ModelInfo[];
+  /** Currently active model, or null when unknown/not connected. */
+  currentModel: { provider: string; modelId: string } | null;
 }
 
 export interface PageModsStatus {

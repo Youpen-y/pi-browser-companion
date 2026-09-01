@@ -26,6 +26,8 @@ export default defineBackground({
       isProcessing: false,
       pageMods: null,
       language: "auto",
+      availableModels: [],
+      currentModel: null,
     };
 
     // Connected side panel ports. We broadcast both full-state snapshots and
@@ -198,6 +200,8 @@ export default defineBackground({
           // Sync the saved language preference so the bridge applies it on connect.
           const lang = await getLanguage();
           if (ws === sock) send({ type: "set_language", language: lang });
+          // Fetch the model list so the settings picker is populated on connect.
+          if (ws === sock) send({ type: "list_models" });
         };
 
         sock.onmessage = (e: MessageEvent) => {
@@ -285,6 +289,10 @@ export default defineBackground({
 
         case "message_delta":
           appendDelta(msg.delta);
+          break;
+
+        case "models":
+          patch({ availableModels: msg.models, currentModel: msg.current });
           break;
 
         case "message_update": {
@@ -678,6 +686,20 @@ export default defineBackground({
 
         case "page_mods_status":
           patch({ pageMods: { origin: msg.origin, count: msg.count, applied: msg.applied, css: msg.css } as PageModsStatus });
+          sendResponse(true);
+          break;
+
+        case "set_model":
+          if (ws?.readyState === WebSocket.OPEN) {
+            send({ type: "set_model", provider: msg.provider, modelId: msg.modelId });
+          }
+          sendResponse(true);
+          break;
+
+        case "refresh_models":
+          if (ws?.readyState === WebSocket.OPEN) {
+            send({ type: "list_models" });
+          }
           sendResponse(true);
           break;
 

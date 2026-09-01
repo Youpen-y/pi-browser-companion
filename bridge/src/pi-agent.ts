@@ -22,7 +22,7 @@ import type { AgentSession, AgentSessionEvent, ToolDefinition } from "@earendil-
 
 import type { BridgeConfig } from "./config.js";
 import { buildPageSystemPrompt } from "./context.js";
-import type { PageContext } from "./types.js";
+import type { ModelInfo, PageContext } from "./types.js";
 import { processPdfBytes, base64ToPdfBytes, buildPdfSummary } from "./pdf.js";
 
 // ── Safe local file read (hard path filtering) ──────────────────────────
@@ -130,6 +130,7 @@ export class PiAgent {
   private session: AgentSession | null = null;
   private options: PiAgentOptions;
   private config: BridgeConfig;
+  private modelRegistry: ModelRegistry | null = null;
 
   // Pending tool call resolvers: toolCallId -> resolve function.
   // Content may include image blocks (produced bridge-side, e.g. PDF page renders).
@@ -168,6 +169,7 @@ export class PiAgent {
       modelsPath: join(agentDir, "models.json"),
     });
     const modelRegistry = new ModelRegistry(modelRuntime);
+    this.modelRegistry = modelRegistry;
 
     // ── Find model ───────────────────────────────────────────────────
     let model = undefined;
@@ -344,6 +346,28 @@ export class PiAgent {
   /** Set the reply language ("auto" follows user/page; any other value forces it). */
   setLanguage(language: string): void {
     this.language = (language || "").trim() || "auto";
+  }
+
+  /** List models that have auth configured (drives the settings model picker). */
+  getAvailableModels(): ModelInfo[] {
+    if (!this.modelRegistry) return [];
+    return this.modelRegistry
+      .getAvailable()
+      .map((m) => ({ provider: String(m.provider), modelId: m.id, name: m.name || m.id }));
+  }
+
+  /** Current model as {provider, modelId}, or null when none is selected. */
+  getCurrentModel(): { provider: string; modelId: string } | null {
+    const m = this.session?.model;
+    return m ? { provider: String(m.provider), modelId: m.id } : null;
+  }
+
+  /** Switch the session's model at runtime. Keeps the conversation history. */
+  async setModel(provider: string, modelId: string): Promise<void> {
+    if (!this.session || !this.modelRegistry) throw new Error("Agent not initialized");
+    const model = this.modelRegistry.find(provider, modelId);
+    if (!model) throw new Error(`Unknown or unauthorized model: ${provider}/${modelId}`);
+    await this.session.setModel(model);
   }
 
   /**

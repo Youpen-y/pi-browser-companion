@@ -26,6 +26,7 @@ export type ExtensionToBridge =
   | { type: "page_context_update"; pageContext: PageContext }
   | { type: "get_state" }
   | { type: "new_session" }
+  | { type: "list_models" }
   | { type: "set_model"; provider: string; modelId: string }
   | { type: "set_thinking_level"; level: ThinkingLevel }
   | { type: "set_language"; language: string };
@@ -48,8 +49,16 @@ export type BridgeToExtension =
   | { type: "compaction_start"; reason: string }
   | { type: "compaction_end"; result: unknown }
   | { type: "new_session_ok" }
+  | { type: "models"; models: ModelInfo[]; current: { provider: string; modelId: string } | null }
   | { type: "error"; code: string; message: string }
   | ExtensionUiRequest;
+
+/** Minimal model descriptor for the extension's model picker. */
+export interface ModelInfo {
+  provider: string;
+  modelId: string;
+  name: string;
+}
 
 // ─── Page Context ───────────────────────────────────────────────────────────
 

@@ -240,6 +240,10 @@
       display: flex; flex-direction: column;
       margin: auto;
       max-width: 360px; width: 100%;
+      /* Constrain height so .settings-body actually scrolls: without this,
+         margin:auto lets the panel grow past the overlay and the header /
+         action buttons get clipped off-screen (unreachable). */
+      max-height: calc(100% - 32px);
       border: 1px solid var(--border);
     }
     .settings-header {
@@ -253,14 +257,41 @@
     .settings-field { margin-bottom: 14px; }
     .settings-field label { display: block; font-weight: 500; margin-bottom: 4px; font-size: 12px; }
     .settings-desc { font-size: 11px; color: var(--fg-secondary); margin-bottom: 6px; }
-    .settings-field input {
+    .settings-field input, .settings-field select {
       width: 100%; box-sizing: border-box;
       padding: 8px 10px; border: 1px solid var(--border);
       border-radius: 4px; background: var(--bg-secondary);
       color: var(--fg); font-size: 12px; font-family: inherit;
       outline: none; transition: border-color 0.1s;
     }
-    .settings-field input:focus { border-color: var(--fg-secondary); }
+    .settings-field input:focus, .settings-field select:focus { border-color: var(--fg-secondary); }
+    /* Custom model dropdown (native <select> popups are unreliable in side panels) */
+    .model-select { position: relative; }
+    .model-select-btn {
+      width: 100%; box-sizing: border-box; display: flex; align-items: center;
+      justify-content: space-between; gap: 8px;
+      padding: 8px 10px; border: 1px solid var(--border); border-radius: 4px;
+      background: var(--bg-secondary); color: var(--fg); font-size: 12px; font-family: inherit;
+      outline: none; transition: border-color 0.1s; cursor: pointer;
+    }
+    .model-select-btn:focus { border-color: var(--fg-secondary); }
+    .model-select-btn:disabled { opacity: 0.5; cursor: default; }
+    .model-select-caret { color: var(--fg-secondary); font-size: 10px; flex-shrink: 0; }
+    .model-select-menu {
+      display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 10;
+      max-height: 180px; overflow-y: auto;
+      background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    .model-select-menu.open { display: block; }
+    .model-select-opt {
+      display: block; width: 100%; text-align: left; padding: 6px 10px;
+      background: transparent; border: none; color: var(--fg); font-size: 12px; font-family: inherit;
+      cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .model-select-opt:hover { background: var(--bg-tertiary); }
+    .model-select-opt.current { font-weight: 600; }
+    .model-select-opt.current::after { content: " ✓"; }
     .settings-actions { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
     .settings-btn {
       flex: 1; padding: 8px 12px;
@@ -385,6 +416,17 @@
           <input type="text" id="settingsLanguage" placeholder="auto" spellcheck="false" />
         </div>
         <div class="settings-field">
+          <label>Response Model</label>
+          <div class="settings-desc">Model used for replies. Switching applies immediately and keeps the conversation.</div>
+          <div class="model-select" id="modelSelect">
+            <button type="button" class="model-select-btn" id="modelSelectBtn">
+              <span id="modelSelectLabel">— connect to load models —</span>
+              <span class="model-select-caret">▾</span>
+            </button>
+            <div class="model-select-menu" id="modelSelectMenu" role="listbox"></div>
+          </div>
+        </div>
+        <div class="settings-field">
           <label>Page Styles</label>
           <div class="settings-desc" id="pageModsDesc">CSS modifications for this site. None saved yet.</div>
           <pre class="page-mods-preview" id="pageModsPreview"></pre>
@@ -468,6 +510,8 @@
     let connected = false;
     let isProcessing = false;
     let autoScrolling = true;
+    let availableModels = [];
+    let currentModel = null;
 
     // ─── Connect to background ────────────────────────────────────
     let port = null;
@@ -534,6 +578,8 @@
       connected = state.connected;
       isProcessing = state.isProcessing;
       messages = state.messages || [];
+      availableModels = state.availableModels || [];
+      currentModel = state.currentModel || null;
 
       // Connection banner — with grace period to avoid flash on reconnect
       if (isProcessing) {
@@ -562,6 +608,9 @@
 
       // Messages
       renderMessages();
+
+      // Model picker (refresh in place when a models broadcast arrives)
+      renderModelSelect();
 
       // Page mods button (🎨) — three-state based on state.pageMods
       updatePageModsButton(state.pageMods);
@@ -841,21 +890,63 @@
     const settingsBridgeUrl = document.getElementById("settingsBridgeUrl");
     const settingsLanguage = document.getElementById("settingsLanguage");
     const settingsToken = document.getElementById("settingsToken");
+    const modelSelectBtn = document.getElementById("modelSelectBtn");
+    const modelSelectLabel = document.getElementById("modelSelectLabel");
+    const modelSelectMenu = document.getElementById("modelSelectMenu");
     const settingsSave = document.getElementById("settingsSave");
     const settingsTest = document.getElementById("settingsTest");
     const settingsStatus = document.getElementById("settingsStatus");
     const btnSettingsClose = document.getElementById("btnSettingsClose");
 
+    let pendingModelValue = ""; // "provider/modelId" while a switch is in flight
+
+    function modelLabel(m) {
+      return m.name && m.name !== m.modelId ? `${m.name} · ${m.provider}` : `${m.modelId} · ${m.provider}`;
+    }
+
+    function renderModelSelect() {
+      if (!modelSelectBtn) return;
+      const cur = currentModel ? `${currentModel.provider}/${currentModel.modelId}` : "";
+      if (!availableModels.length) {
+        modelSelectBtn.disabled = true;
+        modelSelectLabel.textContent = connected
+          ? "No models found — check pi auth, or restart the bridge"
+          : "— connect to load models —";
+        modelSelectMenu.classList.remove("open");
+        modelSelectMenu.innerHTML = "";
+        return;
+      }
+      modelSelectBtn.disabled = false;
+      const curModel = availableModels.find((m) => `${m.provider}/${m.modelId}` === cur);
+      modelSelectLabel.textContent = curModel ? modelLabel(curModel) : "Select a model…";
+      modelSelectMenu.innerHTML = availableModels
+        .map((m) => {
+          const v = `${m.provider}/${m.modelId}`;
+          return `<button type="button" class="model-select-opt${v === cur ? " current" : ""}" data-value="${v}">${modelLabel(m)}</button>`;
+        })
+        .join("");
+      // A pending switch just landed — confirm it in the status line.
+      if (pendingModelValue && cur === pendingModelValue) {
+        pendingModelValue = "";
+        settingsStatus.textContent = "✓ Model switched";
+        settingsStatus.className = "settings-status ok";
+      }
+    }
+
     async function openSettings() {
       settingsBridgeUrl.value = (await storage.getItem("local:pi_bridge_url")) ?? "ws://127.0.0.1:18731";
       settingsToken.value = (await storage.getItem("local:pi_bridge_token")) ?? "";
       settingsLanguage.value = (await storage.getItem("local:pi_language")) ?? "auto";
+      renderModelSelect();
+      // Ask the bridge for a fresh model list while the panel is open.
+      chrome.runtime.sendMessage({ type: "refresh_models" }).catch(() => {});
       settingsStatus.textContent = "";
       settingsStatus.className = "settings-status";
       settingsOverlay.classList.add("open");
     }
     function closeSettings() {
       settingsOverlay.classList.remove("open");
+      modelSelectMenu.classList.remove("open");
     }
 
     btnSettings.addEventListener("click", openSettings);
@@ -868,6 +959,30 @@
 
     settingsOverlay.addEventListener("click", (e) => {
       if (e.target === settingsOverlay) closeSettings();
+    });
+
+    // Custom model dropdown interactions
+    modelSelectBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (modelSelectBtn.disabled) return;
+      modelSelectMenu.classList.toggle("open");
+    });
+    modelSelectMenu.addEventListener("click", (e) => {
+      const opt = e.target.closest(".model-select-opt");
+      if (!opt) return;
+      modelSelectMenu.classList.remove("open");
+      const value = opt.dataset.value;
+      const slash = value.indexOf("/");
+      const provider = value.slice(0, slash);
+      const modelId = value.slice(slash + 1);
+      pendingModelValue = value;
+      modelSelectLabel.textContent = opt.textContent;
+      chrome.runtime.sendMessage({ type: "set_model", provider, modelId }).catch(() => {});
+      settingsStatus.textContent = "⏳ Switching model…";
+      settingsStatus.className = "settings-status";
+    });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".model-select")) modelSelectMenu.classList.remove("open");
     });
 
     settingsSave.addEventListener("click", async () => {
