@@ -6,7 +6,7 @@
   "description": "Local bridge service connecting Chrome extension to pi coding agent",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "kill": "fuser -k 18731/tcp 2>/dev/null; fuser -k 18732/tcp 2>/dev/null; echo 'Bridge killed'",
+    "kill": "node scripts/kill.mjs",
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"
