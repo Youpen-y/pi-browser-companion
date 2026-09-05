@@ -218,10 +218,29 @@ systemctl --user disable pi-bridge
 
 The service runs `node bridge/dist/index.js` in production mode and auto-restarts on failure.
 
-> **macOS / Windows**: systemd is Linux-only. Alternatives:
-> - **macOS**: use `launchd` (a `.plist` under `~/Library/LaunchAgents/`)
-> - **Windows**: use NSSM or the built-in Task Scheduler
-> - **Any OS**: `nohup node dist/index.js > bridge.log 2>&1 &` (simple but no auto-restart)
+### Windows (Task Scheduler)
+
+```powershell
+# From the repo root (builds + registers the "pi-bridge" scheduled task, then starts it)
+powershell -NoProfile -ExecutionPolicy Bypass -File bridge/scripts/install-service.ps1
+
+# Check status / logs
+Get-ScheduledTask pi-bridge
+Get-Content bridge\logs\bridge.log -Tail 20 -Wait
+
+# Stop (kills the whole process tree reliably - unlike Ctrl+C, see note below)
+powershell -NoProfile -ExecutionPolicy Bypass -File bridge/scripts/stop-bridge.ps1
+# or: npm run kill -w bridge
+
+# Fully remove the service
+powershell -NoProfile -ExecutionPolicy Bypass -File bridge/scripts/uninstall-service.ps1
+```
+
+The task starts headless at logon (no console window), auto-restarts on failure, and has no execution time limit. Logs are appended to `bridge/logs/bridge.log`.
+
+> **Note (Ctrl+C on Windows)**: the dev bridge (`npm run dev:bridge`) spawns a multi-layer process chain (npm → cmd → tsx watch → node) that ignores Ctrl+C — the console keeps running as if nothing happened. Use `npm run kill -w bridge` or close the terminal window to stop it.
+
+> **macOS**: systemd is Linux-only. Alternatives: use `launchd` (a `.plist` under `~/Library/LaunchAgents/`), or `nohup node dist/index.js > bridge.log 2>&1 &` (simple but no auto-restart).
 
 ## Acknowledgments
 

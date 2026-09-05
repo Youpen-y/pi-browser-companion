@@ -218,10 +218,29 @@ systemctl --user disable pi-bridge
 
 服务以生产模式运行 `node bridge/dist/index.js`，崩溃后自动重启。
 
-> **macOS / Windows**：systemd 仅限 Linux。替代方案：
-> - **macOS**：使用 `launchd`（在 `~/Library/LaunchAgents/` 下放一个 `.plist`）
-> - **Windows**：使用 NSSM 或任务计划程序
-> - **通用**：`nohup node dist/index.js > bridge.log 2>&1 &`（简单但无自动重启）
+### Windows（任务计划程序）
+
+```powershell
+# 在仓库根目录执行（build + 注册 "pi-bridge" 计划任务，并立即启动）
+powershell -NoProfile -ExecutionPolicy Bypass -File bridge/scripts/install-service.ps1
+
+# 查看状态 / 日志
+Get-ScheduledTask pi-bridge
+Get-Content bridge\logs\bridge.log -Tail 20 -Wait
+
+# 停止（可靠地杀掉整棵进程树 —— 不像 Ctrl+C，见下方说明）
+powershell -NoProfile -ExecutionPolicy Bypass -File bridge/scripts/stop-bridge.ps1
+# 或者：npm run kill -w bridge
+
+# 完全移除服务
+powershell -NoProfile -ExecutionPolicy Bypass -File bridge/scripts/uninstall-service.ps1
+```
+
+任务在登录时无窗口（headless）启动，崩溃后自动重启，且无执行时限。日志追加到 `bridge/logs/bridge.log`。
+
+> **注意（Windows 上的 Ctrl+C）**：开发模式的 bridge（`npm run dev:bridge`）会拉起多层进程链（npm → cmd → tsx watch → node），整条链都会忽略 Ctrl+C —— 按下后终端毫无反应、进程全部存活。请用 `npm run kill -w bridge` 或直接关闭终端窗口来停止。
+
+> **macOS**：systemd 仅限 Linux。替代方案：使用 `launchd`（在 `~/Library/LaunchAgents/` 下放一个 `.plist`），或 `nohup node dist/index.js > bridge.log 2>&1 &`（简单但无自动重启）。
 
 ## 致谢
 
