@@ -99,6 +99,43 @@ export default defineBackground({
       return (await storage.getItem<string>("local:pi_language")) ?? "auto";
     }
 
+    // Localized prompt for the summarize button. The canned text masquerades as a
+    // user message, so under "auto" the model would follow the TEMPLATE language
+    // (English) instead of the user's - explicitly defer to the page language there.
+    const SUMMARIZE_PROMPTS: Record<string, string> = {
+      "中文": "请总结这个页面",
+      chinese: "请总结这个页面",
+      "简体中文": "请总结这个页面",
+      zh: "请总结这个页面",
+      "zh-cn": "请总结这个页面",
+      "zh-hans": "请总结这个页面",
+      english: "Summarize this page",
+      en: "Summarize this page",
+      "日本語": "このページを要約してください",
+      japanese: "このページを要約してください",
+      ja: "このページを要約してください",
+      "français": "Résume cette page",
+      french: "Résume cette page",
+      fr: "Résume cette page",
+      deutsch: "Fasse diese Seite zusammen",
+      german: "Fasse diese Seite zusammen",
+      de: "Fasse diese Seite zusammen",
+      "español": "Resume esta página",
+      spanish: "Resume esta página",
+      es: "Resume esta página",
+      "한국어": "이 페이지를 요약해 주세요",
+      korean: "이 페이지를 요약해 주세요",
+      ko: "이 페이지를 요약해 주세요",
+    };
+
+    function summarizePromptFor(lang: string): string {
+      const key = lang.trim().toLowerCase();
+      if (!key || key === "auto") {
+        return "Summarize this page. Reply in the same language as the page content.";
+      }
+      return SUMMARIZE_PROMPTS[key] ?? `Summarize this page. Reply in ${lang.trim()}.`;
+    }
+
     let discoveredPort: number | null = null;
 
     /**
@@ -644,13 +681,14 @@ export default defineBackground({
           break;
 
         case "summarize":
-          getPageContext().then((ctx) => {
+          getPageContext().then(async (ctx) => {
             if (!ctx) {
               pushMessage({ id: crypto.randomUUID(), role: "system", content: "⚠️ 无法获取页面内容，请确保页面已完全加载。", timestamp: Date.now() });
               return;
             }
-            pushMessage({ id: crypto.randomUUID(), role: "user", content: "Summarize this page", timestamp: Date.now() });
-            send({ type: "prompt", message: "Summarize this page", pageContext: ctx });
+            const prompt = summarizePromptFor(await getLanguage());
+            pushMessage({ id: crypto.randomUUID(), role: "user", content: prompt, timestamp: Date.now() });
+            send({ type: "prompt", message: prompt, pageContext: ctx });
           });
           sendResponse(true);
           return true;
