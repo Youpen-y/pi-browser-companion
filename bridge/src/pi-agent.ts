@@ -17,7 +17,7 @@ import {
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { StringEnum, type ImageContent, type ThinkingLevel } from "@earendil-works/pi-ai";
+import { StringEnum, type ImageContent, type Model, type ModelThinkingLevel, type ThinkingLevel } from "@earendil-works/pi-ai";
 import type { AgentSession, AgentSessionEvent, ToolDefinition } from "@earendil-works/pi-coding-agent";
 
 import type { BridgeConfig } from "./config.js";
@@ -326,7 +326,12 @@ export class PiAgent {
   /**
    * Get the current agent state.
    */
-  getState() {
+  getState(): {
+    model: Model<any> | undefined;
+    thinkingLevel: ModelThinkingLevel;
+    isStreaming: boolean;
+    messageCount: number;
+  } | null {
     if (!this.session) return null;
     return {
       model: this.session.model,
