@@ -251,9 +251,9 @@ export class PiAgent {
 
     // Inject the reply-language preference into every prompt. The system prompt
     // is cached at session creation, so setLanguage can't affect it retroactively;
-    // prepending here guarantees the current value is honored on each turn.
+    // appending here guarantees the current value is honored on each turn.
     if (this.language !== "auto") {
-      fullMessage = `(Respond in ${this.language}.)\n\n${fullMessage}`;
+      fullMessage = `${fullMessage}\n\n(Respond in ${this.language}.)`;
     }
 
     const imageContents: ImageContent[] | undefined = images?.map((img) => ({
