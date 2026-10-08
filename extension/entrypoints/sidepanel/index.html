@@ -460,6 +460,25 @@
     import markedKatex from "marked-katex-extension";
     import { storage } from "wxt/utils/storage";
 
+    // ─── Drag guard (Chromium side-panel bug workaround) ────────
+    // Blink bug: rapid repeated text drags can lose `dragend`, leaving the
+    // renderer's drag state stuck — afterwards ALL mouse/keyboard input to the
+    // panel is silently swallowed (wheel scrolling still works) until the
+    // document is reloaded.
+    //
+    // `-webkit-user-drag: none` does NOT prevent this: selection drags bypass it
+    // entirely (DragController::DraggableNode returns early with
+    // kDragSourceActionSelection when the press lands inside an existing
+    // selection, without consulting user-drag style; that style only gates
+    // element/link/image drags).
+    //
+    // Canceling `dragstart` is the reliable guard: MouseEventManager::TryStartDrag
+    // bails out before StartDrag()/DoSystemDrag(), so no browser-level drag
+    // session ever begins and the teardown race can't be entered. Selection and
+    // copy are unaffected — dragging text *out of* the panel just stops working.
+    // (Pasting text into the input still works: that's dragover/drop, not dragstart.)
+    document.addEventListener("dragstart", (e) => e.preventDefault(), true);
+
     // Render $...$ (inline) and $$...$$ (block) math via KaTeX. nonStandard lets
     // us parse $...$ even when not surrounded by spaces (AI output is often
     // $E=mc^2$ glued to text). throwOnError falls back to raw text on failure.
