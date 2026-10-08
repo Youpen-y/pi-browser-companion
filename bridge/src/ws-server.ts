@@ -470,8 +470,16 @@ export class BridgeServer {
     switch (event.type) {
       case "agent_start":
         return { type: "agent_start" };
+      // pi ≥1.0: `agent_end` fires per low-level run — automatic recovery
+      // (retries) or queued work (steer/followUp) may still follow it. The
+      // authoritative "Pi will not continue automatically" signal is the new
+      // `agent_settled` event, so raw agent_end is suppressed and settled is
+      // mapped to the extension's agent_end. This keeps isProcessing=true
+      // across retries/queued work instead of flickering false mid-run.
       case "agent_end":
-        return { type: "agent_end", messages: event.messages };
+        return null;
+      case "agent_settled":
+        return { type: "agent_end" };
       case "turn_start":
         return { type: "turn_start" };
       case "turn_end":

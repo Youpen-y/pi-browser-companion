@@ -262,7 +262,10 @@ export class PiAgent {
       mimeType: img.mimeType,
     }));
 
-    await this.session.prompt(fullMessage, { images: imageContents });
+    // streamingBehavior: pi ≥1.0 no longer guesses — prompt() during an active
+    // stream REJECTS unless the caller says how to queue. "followUp" preserves
+    // the old 0.85 behavior (queue and answer after the current run finishes).
+    await this.session.prompt(fullMessage, { images: imageContents, streamingBehavior: "followUp" });
   }
 
   /**
